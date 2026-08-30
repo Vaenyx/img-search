@@ -20,7 +20,12 @@ fn main() -> Result<()> {
 
     status.set_message(format!("Indexing {:?}", search_directory));
 
-    update_tesseract_cache(&search_directory, &cache_directory, &args.languages)?;
+    update_tesseract_cache(
+        &search_directory,
+        &cache_directory,
+        &args.languages,
+        args.thread_count,
+    )?;
 
     status.finish_and_clear();
 

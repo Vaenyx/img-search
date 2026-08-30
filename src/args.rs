@@ -20,4 +20,12 @@ pub struct Args {
         default_values_t = ["eng".to_string(), "deu".to_string()]
     )]
     pub languages: Vec<String>,
+
+    #[arg(
+        short,
+        long,
+        help = "Indexing thread count for ocr",
+        default_value_t = 1
+    )]
+    pub thread_count: usize,
 }

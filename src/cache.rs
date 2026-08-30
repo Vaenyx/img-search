@@ -5,6 +5,7 @@ use std::time::SystemTime;
 
 use anyhow::{Ok, Result, bail};
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use walkdir::WalkDir;
 
 fn get_cached_mtime(cache_dir: &Path, cache_id: &str) -> Option<u64> {
@@ -61,6 +62,7 @@ fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[String])
     let output_file = File::create(&text_cache_path)?;
 
     let status = Command::new("tesseract")
+        .env("OMP_THREAD_LIMIT", "1")
         .arg(image_path)
         .arg("stdout")
         .arg("-l")
@@ -83,6 +85,7 @@ pub fn update_tesseract_cache(
     search_dir: &Path,
     cache_dir: &Path,
     languages: &[String],
+    ocr_thread_count: usize,
 ) -> Result<()> {
     create_dir_all(cache_dir)?;
 
@@ -117,13 +120,19 @@ pub fn update_tesseract_cache(
             .progress_chars("=> "),
     );
 
-    for entry in &files_to_update {
-        progress.set_message(entry.file_name().to_string_lossy().into_owned());
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(ocr_thread_count)
+        .build()?;
 
-        update_cached_file(entry.path(), cache_dir, languages)?;
-
-        progress.inc(1);
-    }
+    pool.install(|| {
+        files_to_update
+            .par_iter()
+            .try_for_each(|entry| -> Result<()> {
+                update_cached_file(entry.path(), cache_dir, languages)?;
+                progress.inc(1);
+                Ok(())
+            })
+    })?;
 
     progress.finish_and_clear();
 
