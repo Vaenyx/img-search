@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-use std::fs::{create_dir_all, metadata, read_to_string, write};
+use std::fs::{File, create_dir_all, metadata, read_to_string, write};
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::time::SystemTime;
 
-use anyhow::{Ok, Result};
+use anyhow::{Ok, Result, bail};
 use indicatif::{ProgressBar, ProgressStyle};
-use rusty_tesseract::{Args, Image};
 use walkdir::WalkDir;
 
 fn get_cached_mtime(cache_dir: &Path, cache_id: &str) -> Option<u64> {
@@ -43,7 +42,7 @@ fn needs_cache_update(image_path: &Path, cache_dir: &Path) -> bool {
     cached_mtime != Some(current_mtime)
 }
 
-fn update_cached_file(image_path: &Path, cache_dir: &Path, tesseract_args: &Args) -> Result<()> {
+fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[&str]) -> Result<()> {
     let Some(image_path_str) = image_path.to_str() else {
         return Ok(());
     };
@@ -53,18 +52,27 @@ fn update_cached_file(image_path: &Path, cache_dir: &Path, tesseract_args: &Args
         .duration_since(SystemTime::UNIX_EPOCH)?
         .as_secs();
 
-    let image = Image::from_path(image_path)?;
-
-    let extracted_text =
-        rusty_tesseract::image_to_string(&image, tesseract_args).unwrap_or_default();
-
     let cache_id = sha256::digest(image_path_str.as_bytes());
 
     let text_cache_path = cache_dir.join(format!("{cache_id}.txt"));
     let path_cache_path = cache_dir.join(format!("{cache_id}.path"));
     let mtime_cache_path = cache_dir.join(format!("{cache_id}.mtime"));
 
-    write(text_cache_path, extracted_text)?;
+    let output_file = File::create(&text_cache_path)?;
+
+    let status = Command::new("tesseract")
+        .arg(image_path)
+        .arg("stdout")
+        .arg("-l")
+        .arg(languages.join("+"))
+        .stdout(Stdio::from(output_file))
+        .stderr(Stdio::null())
+        .status()?;
+
+    if !status.success() {
+        bail!("tesseract failed for {}", image_path.display());
+    }
+
     write(path_cache_path, image_path_str)?;
     write(mtime_cache_path, modified_time.to_string())?;
 
@@ -102,14 +110,6 @@ pub fn update_tesseract_cache(
         .filter(|entry| needs_cache_update(entry.path(), cache_dir))
         .collect();
 
-    let tesseract_args = Args {
-        lang: languages.join("+"),
-        config_variables: HashMap::new(),
-        dpi: None,
-        psm: None,
-        oem: None,
-    };
-
     let progress = ProgressBar::new(files_to_update.len() as u64);
 
     progress.set_style(
@@ -120,7 +120,7 @@ pub fn update_tesseract_cache(
     for entry in &files_to_update {
         progress.set_message(entry.file_name().to_string_lossy().into_owned());
 
-        update_cached_file(entry.path(), cache_dir, &tesseract_args)?;
+        update_cached_file(entry.path(), cache_dir, languages)?;
 
         progress.inc(1);
     }

@@ -19,7 +19,6 @@ fn main() -> Result<()> {
 
     update_tesseract_cache(search_dir, cache_dir, &languages)?;
 
-    // Removes "Updating OCR cache..." from the terminal
     status.finish_and_clear();
 
     let results = exact_search(cache_dir, query)?;
