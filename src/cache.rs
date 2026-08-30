@@ -42,7 +42,7 @@ fn needs_cache_update(image_path: &Path, cache_dir: &Path) -> bool {
     cached_mtime != Some(current_mtime)
 }
 
-fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[&str]) -> Result<()> {
+fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[String]) -> Result<()> {
     let Some(image_path_str) = image_path.to_str() else {
         return Ok(());
     };
@@ -82,7 +82,7 @@ fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[&str]) -
 pub fn update_tesseract_cache(
     search_dir: &Path,
     cache_dir: &Path,
-    languages: &[&str],
+    languages: &[String],
 ) -> Result<()> {
     create_dir_all(cache_dir)?;
 

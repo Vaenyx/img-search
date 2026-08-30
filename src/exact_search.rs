@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-pub fn exact_search(cache_dir: &Path, query: &str) -> Result<Vec<String>> {
+pub fn exact_search(cache_dir: &Path, query: String) -> Result<Vec<String>> {
     let directory_entries = read_dir(cache_dir)?;
 
     let text_cache_files: Vec<DirEntry> = directory_entries
@@ -23,7 +23,7 @@ pub fn exact_search(cache_dir: &Path, query: &str) -> Result<Vec<String>> {
             let file_path = file.path();
             let content = read_to_string(&file_path)?;
 
-            if !content.to_lowercase().contains(query) {
+            if !content.to_lowercase().contains(query.as_str()) {
                 return Ok(None);
             }
 
