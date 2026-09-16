@@ -4,6 +4,15 @@ use std::{
     path::Path,
 };
 
+/// Searches cached OCR text for an exact substring.
+///
+/// The search is case-insensitive and returns the original image paths whose
+/// cached OCR text contains `query`.
+///
+/// # Errors
+///
+/// Returns an error if the cache directory or one of its cache files cannot
+/// be read.
 pub fn exact_search(cache_dir: &Path, query: String) -> Result<Vec<String>> {
     let directory_entries = read_dir(cache_dir)?;
 

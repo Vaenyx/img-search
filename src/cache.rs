@@ -8,6 +8,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use walkdir::WalkDir;
 
+/// Returns the modification timestamp stored for a cached image.
 fn get_cached_mtime(cache_dir: &Path, cache_id: &str) -> Option<u64> {
     let mtime_path = cache_dir.join(format!("{cache_id}.mtime"));
 
@@ -16,6 +17,10 @@ fn get_cached_mtime(cache_dir: &Path, cache_id: &str) -> Option<u64> {
         .and_then(|contents| contents.trim().parse::<u64>().ok())
 }
 
+/// Determines whether an image needs to be processed again.
+///
+/// The cache is considered outdated if one of the required cache files is
+/// missing or the image's modification timestamp has changed.
 fn needs_cache_update(image_path: &Path, cache_dir: &Path) -> bool {
     let Some(image_path_str) = image_path.to_str() else {
         return false;
@@ -43,6 +48,8 @@ fn needs_cache_update(image_path: &Path, cache_dir: &Path) -> bool {
     cached_mtime != Some(current_mtime)
 }
 
+/// Runs Tesseract for a single image and writes its OCR text, original path,
+/// and modification timestamp to the cache.
 fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[String]) -> Result<()> {
     let Some(image_path_str) = image_path.to_str() else {
         return Ok(());
@@ -81,6 +88,19 @@ fn update_cached_file(image_path: &Path, cache_dir: &Path, languages: &[String])
     Ok(())
 }
 
+/// Recursively scans `search_dir` for supported image files and updates the OCR cache.
+///
+/// Images are processed with Tesseract using the provided `languages`. Cached OCR
+/// data is reused unless the source image has been modified.
+///
+/// Supported image formats are PNG, JPEG, WebP, and TIFF.
+///
+/// `ocr_thread_count` controls how many images may be processed concurrently.
+///
+/// # Errors
+///
+/// Returns an error if the cache directory cannot be created, filesystem access
+/// fails, the Rayon thread pool cannot be created, or Tesseract fails.
 pub fn update_tesseract_cache(
     search_dir: &Path,
     cache_dir: &Path,
