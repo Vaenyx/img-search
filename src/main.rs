@@ -1,5 +1,5 @@
 use anyhow::Result;
-use dirs::config_dir;
+use dirs::cache_dir;
 use img_search::{exact_search, update_tesseract_cache};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     let search_directory = args.search_directory.unwrap_or(env::current_dir()?);
     let cache_directory = args
         .cache_directory
-        .unwrap_or(config_dir().unwrap().join("img-search"));
+        .unwrap_or(cache_dir().unwrap().join("img-search"));
 
     let status = ProgressBar::new_spinner();
     status.set_style(ProgressStyle::with_template("{msg}")?);
